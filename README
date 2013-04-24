@@ -1,0 +1,47 @@
+Voiculescu Rafaela
+331CA
+
+
+APD - Tema 3
+
+
+
+Rulare:
+-contrastul, aplicarea filtrului si partea cu imaginea reziduala (si entropia) se ruleaza individual astfel:
+	-contrast:	mpirun -np P ./exec 0 input_file a b output_file
+	-filtru:	miprun  -np P ./exec 1 input_file filter_type filter_output_file
+	-entropie:	mpirun -np P ./exec 2 input_file a b c output_file
+	-pentru rulare se pot face modificarile in functie de preferinte in makefile si apoi se poate rula direct cu make run
+-entropia este afisata pe ecran
+
+Rezolvare tema:
+
+-dupa citirea din fisier datele sunt retinute intr-o matrice ce reprezinta imaginea
+
+
+Pentru obtinerea imaginii cu contrast:
+
+-procesul master(rank==0) va imparti matricea initiala ce reprezinta imaginea in fasii (atatea cate procese sunt)
+-el va trimite fiecarui proces fasia ce ii corespunde (va pastra fasia 0 pentru sine)
+-fiecare proces isi va retine fasia din matrice ce i-a fost atribuita intr-o alta matrice bordata cu 0 -va ajuta la aplicarea filtrului si calculul entropiei (prima linie, ultima linie, prima si ult coloana)
+-fiecare proces va apela functia contrastImagine(param) obtinand un contrast pe portiunea sa
+-functia contrastImagine(param) functioneaza astfel:
+		-afla valoarea minima si valoarea maxima din matricea procesului si afla valoarea minima, respectiv maxima globala folosind MPI_Allreduce(...)
+		-aplica formula de obtinere a contrastului pentru fiecare valoare din matricea sa
+-fiecare proces (in afara de cel cu rank==0) va trimite la procesul cu rank==0 matricea de dupa calcularea contrastului
+-procesul de rank==0 va combina datele primite cu matricea sa salvandu-le in noua matrice imagine ce va fi o varianta cu contrast a matricei imagine initiale
+
+
+Pentru aplicare filtrului:
+-se pastreaza comunicarea initiala (imaprtirea in fasii si reunirea acestora la final dupa ce fiecare proces apeleaza functia filtruImagine(param) pentru fasia sa)
+-functia filtruImagine(param) functioneaza astfel:
+		-fiecare proces va cere informatii procesului anterior si celui posterior (cu exceptia primului si ultimului proces ce vor cere informatii doar dintr-o directie)
+		-fiecare proces adauga datele primite la matricea (fasie din matricea imagine) pe care o detin si vor aplica in functie de tipul de filtru specificat unul din filtre (matricea ce va rezulta o trimit procesului cu rak==0)
+
+Pentru calculul entropiei:
+-se pastreaza din nou comunicarea initiala (imaprtirea in fasii si reunirea acestora la final dupa ce fiecare proces apeleaza functia entropieImagine(param) pentru fasia sa)
+-functia entropieImagine(param):
+		-fiecare proces va cere informatii procesului anterior si celui posterior (cu exceptia primului si ultimului proces ce vor cere informatii doar dintr-o directie)
+		-fiecare proces adauga datele primite la matricea (fasie din matricea imagine) pe care o detin si apoi calculeaza imaginea reziduala a acestei matrice pe care o trimit procesului cu rank==0
+-dupa ce procesul cu rank==0 primeste toate matricele de la celelalte procese si le combina impreuna cu matricea sa va rezulta imaginea reziduala
+-calculul entropiei se face de catre procesul de rank==0 pe baza matricii imaginii reziduale aplicand formula din enuntul problemei
